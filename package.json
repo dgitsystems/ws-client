@@ -1,0 +1,14 @@
+{
+  "name": "inomial-ws-client",
+  "version": "1.0.0",
+  "description": "Bi-directional, promise-based GraphQL client for Inomial billing",
+  "keywords": [
+    "billing",
+    "GraphQL",
+    "WebSockets"
+  ],
+  "homepage": "https://github.com/inomial/ws-client",
+  "dependencies": {
+    "websocket": ">=1.0.28"
+  }
+}
