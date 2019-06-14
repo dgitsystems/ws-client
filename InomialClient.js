@@ -113,10 +113,11 @@ class InomialClient {
      * the query is sent immediately; if the connection is not established then the
      * query is queued until the connection becomes available.
      */
-    query(queryString, variables) {
+    query(queryString, variables, operationName) {
         // The query we're going to send to the server.
         let query = {
             query: queryString,
+            operationName: operationName,
             variables: variables
         };
 
@@ -151,7 +152,7 @@ class InomialClient {
      * Note that if the websocket is not connected, the subscription may not be
      * created immediately.
      */
-    subscribe(queryString, variables, callback) {
+    subscribe(queryString, variables, callback, operationName) {
 
         if (callback == null)
             throw new Error("callback must not be null");
@@ -159,6 +160,7 @@ class InomialClient {
         // The query we're going to send to the server.
         let query = {
             query: queryString,
+            operationName: operationName,
             variables: variables
         };
 
