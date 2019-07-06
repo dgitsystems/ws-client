@@ -20,10 +20,26 @@ module.exports = {
 let WebSocketClient = require('websocket').client;
 
 class InomialClient {
-//
-// Create a new client of the Inomial GraphQL server.
-//
-    constructor(hostname, stage, origin, apikey) {
+    //
+    // Create a new client of the Inomial GraphQL server.
+    //
+    // If hostname, stage or apikey are null, we will use the following
+    // environment variables:
+    //
+    //  INOMIAL_HOSTNAME
+    //  INOMIAL_STAGE
+    //  INOMIAL_APIKEY
+    //
+    // Origin is nullable is the WSS Origin header; should be null for web clients, or
+    // you can set it to let the server know what your application name is.
+    //
+    //
+    constructor(hostname, stage, origin, apikey)
+    {
+        hostname = hostname || process.env.INOMIAL_HOSTNAME;
+        stage = stage || process.env.INOMIAL_STAGE;
+        apikey = apikey || process.env.INOMIAL_APIKEY;
+        
         // If the connection is down, queries are added to this queue.
         // When the connection comes back up, the queries are executed.
         this.requestQueue = [];
@@ -55,12 +71,7 @@ class InomialClient {
     }
 
 //
-// Connect to the WebSocket server. You only need to provide
-// the hostname and production stage (normally "live" or "test").
-// "Origin" is the WSS Origin header; should be null for web clients, or
-// you can set it to let the server know what your application name is.
-//
-// APIKEY is your Inomial-provided API key.
+// Connect to the WebSocket server. 
 //
     connect() {
         console.log("Attempting to connect to " + this.url);
@@ -113,7 +124,7 @@ class InomialClient {
      * the query is sent immediately; if the connection is not established then the
      * query is queued until the connection becomes available.
      */
-    query(queryString, variables, operationName) {
+    async query(queryString, variables, operationName) {
         // The query we're going to send to the server.
         let query = {
             query: queryString,
@@ -152,7 +163,7 @@ class InomialClient {
      * Note that if the websocket is not connected, the subscription may not be
      * created immediately.
      */
-    subscribe(queryString, variables, callback, operationName) {
+    async subscribe(queryString, variables, callback, operationName) {
 
         if (callback == null)
             throw new Error("callback must not be null");
@@ -258,7 +269,7 @@ class InomialClient {
      *
      * This function returns a promise.
      */
-    getAccountUuid(usn) {
+    async getAccountUuid(usn) {
         let accountUuidCache = this.accountUuidCache;
         let uuid = accountUuidCache[usn];
 
@@ -282,7 +293,7 @@ class InomialClient {
      *
      * This function returns a promise.
      */
-    getSubscriptionUuid(usn) {
+    async getSubscriptionUuid(usn) {
         let subscriptionUuidCache = this.subscriptionUuidCache;
         let uuid = subscriptionUuidCache[usn];
 
@@ -306,13 +317,13 @@ class InomialClient {
      *
      * getOffset returns a promise, you should add a _then_ to the returned value to perform the actual subscription.
      */
-    getOffset(subscriber) {
+    async getOffset(subscriber) {
         return this
             .query("query($subscriber: String!) { announceGetOffset(subscriber: $subscriber) }", {subscriber: subscriber})
             .then((result) => result.data.announceGetOffset != null ? result.data.announceGetOffset : null)
     }
 
-    setOffset(subscriber, offset) {
+    async setOffset(subscriber, offset) {
         return this
             .query("mutation($subscriber: String!, $offset: String!) { announceSetOffset(subscriber: $subscriber, offset: $offset) }", {subscriber: subscriber, offset: offset})
     }
