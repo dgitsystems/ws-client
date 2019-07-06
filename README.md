@@ -37,6 +37,16 @@ documented below.
 * `origin`: The HTTP origin header. Helps with debugging but can be `null`.
 *  `apikey`: The API Key provided by Inomial.
 
+Origin is optional; if hostname, stage or apikey are null, the values will be taken from the environment:
+
+* `INOMIAL_HOSTNAME`
+* `INOMIAL_STAGE`
+* `INOMIAL_APIKEY`
+
+This means you can set up your shell/docker environment and then connect using
+
+    const client = InomialClient.connect();
+
 ## Subscribing to events
 
 Subscribe to events using the `client.subscribe` call. This executes the given
@@ -72,7 +82,7 @@ builds for interactive clients, and greater performance through parallel
 execution in headless clients.
 
 **WARNING** Like queries, mutations are executed in parallel. If you want to execute
-mutations sequentially, simply use a promise chain (see below).
+mutations sequentially, use await, or use a promise chain (see below).
 
 To perform a query and then print the results, we use a
 [Promise](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Guide/Using_promises):
@@ -86,18 +96,63 @@ in this call:
 
 When the query completes, the _then()_ closure is executed.
 
+## await/async
+
+The InomialClient functions which return promises are marked `async`.
+If you call these functions from an `async` function, you can use the `await`
+keyword. A good introduction to these terms can be found at https://javascript.info/async-await
+
+To use the InomialClient synchronously, you need to prefix "await" to any of the query calls.
+This includes the query call itself, as well as the cache and offset calls.
+
+For example:
+
+    async function run()
+    {
+      let response1 = await client.query("{ account(uuid: \"D097E534-BB96-4B51-9532-90CFBDEF2124\") { usn Transactions { objects { txNumber } } } }";
+      console.log("RECEIVED RESULT: " + JSON.stringify(response1));
+
+      let response2 = await client.query("{ account(uuid: \"240AA2A5-A3AD-4E0E-9D7E-81F4BDD5973A\") { usn } }");
+      console.log("RECEIVED RESULT: " + JSON.stringify(response2));
+    }
+
+Importantly, you can only use `await` from within a function that's marked `async`.
+Your top-level node script therefore needs to declare a function and then call it.
+A complete, synchronous program would look like this:
+
+    #!/usr/bin/env node
+
+    async function run()
+    {
+      let response1 = await client.query("{ account(uuid: \"D097E534-BB96-4B51-9532-90CFBDEF2124\") { usn Transactions { objects { txNumber } } } }";
+      console.log("RECEIVED RESULT: " + JSON.stringify(response1));
+
+      let response2 = await client.query("{ account(uuid: \"240AA2A5-A3AD-4E0E-9D7E-81F4BDD5973A\") { usn } }");
+      console.log("RECEIVED RESULT: " + JSON.stringify(response2));
+    }
+
+    const client = InomialClient.connect();
+    run();
+
 ## Promises and Promise Chains
 
-Promises work by adding a task to a queue; they are executed in the background.
-When the promise _resolves_, any closures (specified by _then()_) are
-executed. You can chain promises together so that they operate one after
-the other. In the case of the Inomial client, the task is actually sent to the
-server for processing; the promise resolves when we receive the response.
+If you want to use the API asynchronously, you need to understand how promises
+and promise chains work.
 
 The Inomial Websocket API is fully asynchronous on both the client and server
 side. What this means in practice is that you can fire off as many queries
 as you want, but the responses will arrive in the order that the queries complete;
-fastest query wins.
+fastest query wins. This is achieved through extensive use of JavaScript promises.
+
+Promises work by adding a task to a private queue within the JavaScript execution
+environment; they are executed in the background.
+
+When the promise _resolves_, any closures (specified by _then()_) are
+executed. You can chain promises together so that they operate one after
+the other. In the case of the Inomial client, the task is actually sent to the
+server for processing; the promise resolves when we receive the response.
+Since queries are also processed asynchronously on the server, responses can be
+returned in a different order to requests.
 
 Consider the following:
 
