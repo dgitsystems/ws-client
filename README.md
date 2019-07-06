@@ -8,6 +8,7 @@ The API provides the following capabilities:
 * Low latency: uses a single persistent WebSocket connection for all operations.
 * Real time delivery of GraphQL Subscription events.
 * Asynchronous, promise-based queries and mutations.
+* Support for `await`.
 * Automatic re-connection after connection failure.
 * Automatic re-transmission of queries and mutations after connection failure.
 * Maintains subscriptions between connection failures.
@@ -20,7 +21,7 @@ Run "npm install" to install the dependencies.
 
 # Using the Client
 
-The included `InomialCommand.js` script provides examples of using the client,
+The included `InomialExample.js` script provides examples of using the client,
 but here's the cheat sheet. Utility functions provided by the client are
 documented below. 
 
@@ -72,38 +73,47 @@ The `event` is the exact JSON received from the server.
 > Note: Queries are handled identically to mutations; in the remaining document, you
 > can read "query" as either "query" or "mutation".
 
-Queries work by sending a query over the WebSocket connection, and returning
-a `Promise`. The query will be executed asynchronously on the server side;
-there is no guarantee that queries will be processed in the order they are
-sent.
+Queries work by sending a GraphQL expression over the WebSocket connection, and returning
+a `Promise` to the caller. The query will be executed asynchronously on the server side;
+*there is no guarantee that queries will be processed in the order they are
+sent*, but you can force the query order by using `await` (see below).
 
 Asynchronous processing of queries is a feature which enables fast, progressive page
 builds for interactive clients, and greater performance through parallel
 execution in headless clients.
 
 **WARNING** Like queries, mutations are executed in parallel. If you want to execute
-mutations sequentially, use await, or use a promise chain (see below).
+mutations sequentially, use `await`, or a promise chain (see below).
 
-To perform a query and then print the results, we use a
+To perform a query and then print the results, we can use a
 [Promise](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Guide/Using_promises):
 
     client.query(query, variables)
       .then((response) => { console.log("RECEIVED RESULT: " + JSON.stringify(response)); });
 
-in this call:
+When the query completes, the _then()_ closure is executed.
+
+Alternatively, we can use `await`:
+
+    let response = await client.query(query, variables);
+    console.log("RECEIVED RESULT: " + JSON.stringify(response));
+
+In both calls:
 * `query` is the GraphQL query
 * `variables` is the (optional) set of variables to be used in the query.
 
-When the query completes, the _then()_ closure is executed.
 
 ## await/async
 
 The InomialClient functions which return promises are marked `async`.
 If you call these functions from an `async` function, you can use the `await`
-keyword. A good introduction to these terms can be found at https://javascript.info/async-await
+keyword. A good introduction to these terms can be found at
+[https://javascript.info/async-await](https://javascript.info/async-await)
 
-To use the InomialClient synchronously, you need to prefix "await" to any of the query calls.
-This includes the query call itself, as well as the cache and offset calls.
+To use the InomialClient synchronously - that is, to wait for a response before the
+next line of code is executed - you need to use the "await" prefix when calling any
+of the query calls. This includes the query call itself, as well as the cache and offset
+calls.
 
 For example:
 
@@ -117,8 +127,10 @@ For example:
     }
 
 Importantly, you can only use `await` from within a function that's marked `async`.
-Your top-level node script therefore needs to declare a function and then call it.
-A complete, synchronous program would look like this:
+Your top-level node script therefore needs to declare an `async` function, and then call
+it.
+
+A complete, synchronous InomialClient application would look like this:
 
     #!/usr/bin/env node
 
