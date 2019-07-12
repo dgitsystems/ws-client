@@ -281,19 +281,24 @@ An example of the `FINE` level logging output could be:
 
   ```
   [InomialClient] GraphQL request R1000002 sent:
-    query: "mutation createAccount(\n    $address: AccountAddressInput\n    $contact: …"
+    query (excerpt):
+      mutation createSubscription($subscriptionInput: SubscriptionInput!) {
+        subscription(subscription: $subscriptionInput) {
+          subscriptionUuid
+        }
+      }
     operationName: createSubscription
     variables:
       {
         subscriptionInput: {
-          accountUuid: '4ecb52d4-5db6-4210-82fe-f989ed6f8c6b',
-          subscriptionUuid: '69d14e82-05a3-4fdd-9735-5cc58fca400c'
+          accountUuid: '458e37cf-38f3-4475-8e36-6eb4fb6a5888',
+          subscriptionUuid: '8b27a381-7057-4da9-b893-911ed3faa8e9'
         }
       }
   [InomialClient] GraphQL response for request R1000002 received:
     {
       data: {
-        subscription: { subscriptionUuid: '69d14e82-05a3-4fdd-9735-5cc58fca400c' }
+        subscription: { subscriptionUuid: '8b27a381-7057-4da9-b893-911ed3faa8e9' }
       },
       errors: [],
       extensions: { requestId: 'R1000002' }
