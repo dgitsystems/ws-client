@@ -267,15 +267,37 @@ class InomialClient {
       // Indent for readability
       console.group("[InomialClient] GraphQL request " + graphqlRequest.extensions.requestId + " sent:");
 
-      if (graphqlRequest.query.length >= 500 && graphqlRequest.operationName)
+      if (graphqlRequest.operationName && /[_A-Za-z]\w*/.test(graphqlRequest.operationName))
       {
-        // Abbreviate the query document if it's too long (when operation name given) so it doesn't flood the logs
-        // if the same large query document is used repeatedly with different operations.
-        console.log("query: " + JSON.stringify(graphqlRequest.query.slice(0, 72) + "…"));
+        // If operation name was given and is well-formed, we'll try a quick-and-dirty regex search to locate the
+        // query/mutation/subscription by that name in the query document and print it out as an excerpt (since the
+        // entire query document could be very large and may flood the logs if printed in quick succession).
+        let regExp = new RegExp("^(?:query|mutation|subscription)\\s+" + graphqlRequest.operationName
+          + "\\s*[({].*?^\\}", "ms");
+        let result = regExp.exec(graphqlRequest.query);
+        if (result != null)
+        {
+          console.group("query (excerpt):");
+          console.log(result[0]);
+          console.groupEnd();
+        }
+        else if (graphqlRequest.query.length >= 500)
+        {
+          // If we can't locate the operation but the query document is still large, then we'll just print the first
+          // bit of it & hope it's distinct enough to jolt the developer's memory.
+          console.log("query: " + JSON.stringify(graphqlRequest.query.slice(0, 72) + "…"));
+        }
+        else
+        {
+          // Short-enough query document - print the whole lot.
+          console.group("query:");
+          console.log(graphqlRequest.query);
+          console.groupEnd();
+        }
       }
       else
       {
-        // Print ad-hoc queries in their entirety
+        // Always print ad-hoc single operation queries in their entirety.
         console.group("query:");
         console.log(graphqlRequest.query);
         console.groupEnd();
