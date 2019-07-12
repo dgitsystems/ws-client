@@ -267,7 +267,7 @@ class InomialClient {
       // Indent for readability
       console.group("[InomialClient] GraphQL request " + graphqlRequest.extensions.requestId + " sent:");
 
-      if (graphqlRequest.operationName && /[_A-Za-z]\w*/.test(graphqlRequest.operationName))
+      if (graphqlRequest.operationName && /^[_A-Za-z]\w*$/.test(graphqlRequest.operationName))
       {
         // If operation name was given and is well-formed, we'll try a quick-and-dirty regex search to locate the
         // query/mutation/subscription by that name in the query document and print it out as an excerpt (since the
