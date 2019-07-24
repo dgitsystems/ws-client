@@ -12,8 +12,6 @@ The API provides the following capabilities:
 * Automatic re-connection after connection failure.
 * Automatic re-transmission of queries and mutations after connection failure.
 * Maintains subscriptions between connection failures.
-* Optional wire-level protocol logging of GraphQL requests/responses to aid debugging
-  application code.
 
 The client is written in (and requires) ECMAScript 6.
 
@@ -29,34 +27,22 @@ documented below.
 
 ## Include the library
 
-  ```js
-  const InomialClient = require("./InomialClient.js");
-  ```
+    const InomialClient = require("./InomialClient.js");
 
 ## Connect to the server
 
-  ```js
-  const client = InomialClient.connect(hostname, stage, origin, apikey,
-    websocketClientConfig, logLevel);
-  ```
+    const client = InomialClient.connect(hostname, stage, origin, apikey, websocketClientConfig);
 
-* `hostname`: the hostname of the Inomial service; for example: `example.inomial.com`
+* `hostname`: the hostname of the inomial service; for example: `example.inomial.com`
 * `stage`: the Inomial production stage; for example: `live`, `test`, `dev` etc.
-* `origin` _(optional)_: The HTTP origin header. Helps with debugging but can be `null`.
-* `apikey`: The API Key provided by Inomial.
+* `origin`: The HTTP origin header. Helps with debugging but can be `null`.
+*  `apikey`: The API Key provided by Inomial.
 * `websocketClientConfig` _(optional)_: Allows fine-tuning of socket/TLS parameters.
   This should be an object that is passed-on verbatim to the underlying websocket
   library; details on which properties are supported can be found
   [here](https://github.com/theturtle32/WebSocket-Node/blob/master/docs/WebSocketClient.md#client-config-options).
-* `logLevel` _(optional)_: Sets the initial logging detail level. Should be one of the
-  following constants:
-  * `InomialClient.LogLevel.NONE`: No logging at all.
-  * `InomialClient.LogLevel.ERRORS`: Only print errors (e.g. connection dropouts).
-  * `InomialClient.LogLevel.INFO` _(default)_: Also print informational messages (e.g. connection establishment).
-  * `InomialClient.LogLevel.FINE`: The highest logging detail level; also prints wire-level GraphQL
-    protocol requests and responses as they are sent/received.
 
-If `hostname`, `stage` or `apikey` are `null`, the values will be taken from the environment:
+Origin is optional; if hostname, stage or apikey are null, the values will be taken from the environment:
 
 * `INOMIAL_HOSTNAME`
 * `INOMIAL_STAGE`
@@ -64,13 +50,7 @@ If `hostname`, `stage` or `apikey` are `null`, the values will be taken from the
 
 This means you can set up your shell/docker environment and then connect using
 
-  ```js
-  const client = InomialClient.connect();
-  ```
-
-If `logLevel` is `null` then the environment variable `INOMIAL_LOG_LEVEL` if present can
-specify a logging level at startup for the Inomial GraphQL client; its value should
-be one of `NONE`, `ERRORS`, `INFO` or `FINE` respectively.
+    const client = InomialClient.connect();
 
 ## Subscribing to events
 
@@ -79,20 +59,16 @@ query (which must start with `subscription`) with the specified variables, and
 executes the callback each time an event arrives. The subscription is persistent
 for the life of the client, and will reconnect if the server disconnects. 
 
-  ```js
-  client.subscribe(query, variables, callback);
-  ```
+    client.subscribe(query, variables, callback);
 
 > TODO: we don't track the subscription offset when reconnecting, which is a bug.
 > We might need to rethink this API slightly.
 
 The callback function has the signature:
 
-  ```js
-  function myCallback(event) {
-      console.log("RECEIVED EVENT:" + JSON.stringify(event));
-  }
-  ```
+    function myCallback(event) {
+        console.log("RECEIVED EVENT:" + JSON.stringify(event));
+    }
 
 The `event` is the exact JSON received from the server.
 
@@ -116,19 +92,15 @@ mutations sequentially, use `await`, or a promise chain (see below).
 To perform a query and then print the results, we can use a
 [Promise](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Guide/Using_promises):
 
-  ```js
-  client.query(query, variables)
-    .then((response) => { console.log("RECEIVED RESULT: " + JSON.stringify(response)); });
-  ```
+    client.query(query, variables)
+      .then((response) => { console.log("RECEIVED RESULT: " + JSON.stringify(response)); });
 
 When the query completes, the _then()_ closure is executed.
 
 Alternatively, we can use `await`:
 
-  ```js
-  let response = await client.query(query, variables);
-  console.log("RECEIVED RESULT: " + JSON.stringify(response));
-  ```
+    let response = await client.query(query, variables);
+    console.log("RECEIVED RESULT: " + JSON.stringify(response));
 
 In both calls:
 * `query` is the GraphQL query
@@ -149,16 +121,14 @@ calls.
 
 For example:
 
-  ```js
-  async function run()
-  {
-    let response1 = await client.query("{ account(uuid: \"D097E534-BB96-4B51-9532-90CFBDEF2124\") { usn Transactions { objects { txNumber } } } }";
-    console.log("RECEIVED RESULT: " + JSON.stringify(response1));
+    async function run()
+    {
+      let response1 = await client.query("{ account(uuid: \"D097E534-BB96-4B51-9532-90CFBDEF2124\") { usn Transactions { objects { txNumber } } } }";
+      console.log("RECEIVED RESULT: " + JSON.stringify(response1));
 
-    let response2 = await client.query("{ account(uuid: \"240AA2A5-A3AD-4E0E-9D7E-81F4BDD5973A\") { usn } }");
-    console.log("RECEIVED RESULT: " + JSON.stringify(response2));
-  }
-  ```
+      let response2 = await client.query("{ account(uuid: \"240AA2A5-A3AD-4E0E-9D7E-81F4BDD5973A\") { usn } }");
+      console.log("RECEIVED RESULT: " + JSON.stringify(response2));
+    }
 
 Importantly, you can only use `await` from within a function that's marked `async`.
 Your top-level node script therefore needs to declare an `async` function, and then call
@@ -166,21 +136,19 @@ it.
 
 A complete, synchronous InomialClient application would look like this:
 
-  ```js
-  #!/usr/bin/env node
+    #!/usr/bin/env node
 
-  async function run()
-  {
-    let response1 = await client.query("{ account(uuid: \"D097E534-BB96-4B51-9532-90CFBDEF2124\") { usn Transactions { objects { txNumber } } } }";
-    console.log("RECEIVED RESULT: " + JSON.stringify(response1));
+    async function run()
+    {
+      let response1 = await client.query("{ account(uuid: \"D097E534-BB96-4B51-9532-90CFBDEF2124\") { usn Transactions { objects { txNumber } } } }";
+      console.log("RECEIVED RESULT: " + JSON.stringify(response1));
 
-    let response2 = await client.query("{ account(uuid: \"240AA2A5-A3AD-4E0E-9D7E-81F4BDD5973A\") { usn } }");
-    console.log("RECEIVED RESULT: " + JSON.stringify(response2));
-  }
+      let response2 = await client.query("{ account(uuid: \"240AA2A5-A3AD-4E0E-9D7E-81F4BDD5973A\") { usn } }");
+      console.log("RECEIVED RESULT: " + JSON.stringify(response2));
+    }
 
-  const client = InomialClient.connect();
-  run();
-  ```
+    const client = InomialClient.connect();
+    run();
 
 ## Promises and Promise Chains
 
@@ -204,13 +172,11 @@ returned in a different order to requests.
 
 Consider the following:
 
-  ```js
-  let promise1 = client.query("{ account(uuid: \"D097E534-BB96-4B51-9532-90CFBDEF2124\") { usn Transactions { objects { txNumber } } } }")
-      .then((response) => { console.log("RECEIVED RESULT: " + JSON.stringify(response)); });
+    let promise1 = client.query("{ account(uuid: \"D097E534-BB96-4B51-9532-90CFBDEF2124\") { usn Transactions { objects { txNumber } } } }")
+        .then((response) => { console.log("RECEIVED RESULT: " + JSON.stringify(response)); });
 
-  let promise2 = client.query("{ account(uuid: \"240AA2A5-A3AD-4E0E-9D7E-81F4BDD5973A\") { usn } }")
-       .then((response) => { console.log("RECEIVED RESULT: " + JSON.stringify(response)); });
-  ```
+    let promise2 = client.query("{ account(uuid: \"240AA2A5-A3AD-4E0E-9D7E-81F4BDD5973A\") { usn } }")
+         .then((response) => { console.log("RECEIVED RESULT: " + JSON.stringify(response)); });
 
 The first query is far more complex than the second, so the second query is probably
 going to complete (and print to the console) before the first one.
@@ -218,11 +184,9 @@ going to complete (and print to the console) before the first one.
 If you want to make sure that queries (and especially mutations) execute in order,
 use a [promise chain](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Guide/Using_promises#Chaining):
 
-  ```js
-  let promiseChain = client.query("{ account(uuid: \"D097E534-BB96-4B51-9532-90CFBDEF2124\") { usn Transactions { objects { txNumber } } } }")
-    .then((response) => { client.query("{ account(uuid: \"240AA2A5-A3AD-4E0E-9D7E-81F4BDD5973A\") { usn } }")
-    .then((response) => { console.log("RECEIVED RESULT: " + JSON.stringify(response)); });
-  ```
+    let promiseChain = client.query("{ account(uuid: \"D097E534-BB96-4B51-9532-90CFBDEF2124\") { usn Transactions { objects { txNumber } } } }")
+      .then((response) => { client.query("{ account(uuid: \"240AA2A5-A3AD-4E0E-9D7E-81F4BDD5973A\") { usn } }")
+      .then((response) => { console.log("RECEIVED RESULT: " + JSON.stringify(response)); });
 
 In this example, once the complex query completes, it executes the second query.
 Once that completes, it prints the results.
@@ -264,44 +228,3 @@ events.
 
 To prevent accidentally resetting the offset, `setOffset` won't update the offset if
 the new value could result in messages being delivered again.
-
-#### `setLogLevel(logLevel)`
-
-Changes the logging detail level of the Inomial GraphQL client.
-
-`logLevel` should be one of the following constants:
-
-  * `InomialClient.LogLevel.NONE`: No logging at all.
-  * `InomialClient.LogLevel.ERRORS`: Only print errors (e.g. connection dropouts).
-  * `InomialClient.LogLevel.INFO` _(default)_: Also print informational messages (e.g. connection establishment).
-  * `InomialClient.LogLevel.FINE`: The highest logging detail level; also prints wire-level GraphQL
-    protocol requests and responses as they are sent/received.
-
-An example of the `FINE` level logging output could be:
-
-  ```
-  [InomialClient] GraphQL request R1000002 sent:
-    query (excerpt):
-      mutation createSubscription($subscriptionInput: SubscriptionInput!) {
-        subscription(subscription: $subscriptionInput) {
-          subscriptionUuid
-        }
-      }
-    operationName: createSubscription
-    variables:
-      {
-        subscriptionInput: {
-          accountUuid: '458e37cf-38f3-4475-8e36-6eb4fb6a5888',
-          subscriptionUuid: '8b27a381-7057-4da9-b893-911ed3faa8e9'
-        }
-      }
-  [InomialClient] GraphQL response for request R1000002 received:
-    {
-      data: {
-        subscription: { subscriptionUuid: '8b27a381-7057-4da9-b893-911ed3faa8e9' }
-      },
-      errors: [],
-      extensions: { requestId: 'R1000002' }
-    }
-  ```
-

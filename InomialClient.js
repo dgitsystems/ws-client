@@ -7,19 +7,12 @@
 // subscriptions.
 //
 
-// Log level constants
-const NONE = 0;     // No logging at all.
-const ERRORS = 1;   // Only print errors (e.g. connection dropouts).
-const INFO = 2;     // Also print informational messages (connection establishment).
-const FINE = 3;     // Also print wire-level logging of GraphQL requests/responses.
-
 module.exports = {
-    connect: function(hostname, stage, origin, apikey, websocketClientConfig, logLevel) {
-        const client = new InomialClient(hostname, stage, origin, apikey, websocketClientConfig, logLevel);
+    connect: function(hostname, stage, origin, apikey, websocketClientConfig) {
+        const client = new InomialClient(hostname, stage, origin, apikey, websocketClientConfig);
         client.connect();
         return client;
-    },
-    LogLevel: { NONE: NONE, ERRORS: ERRORS, INFO: INFO, FINE: FINE }
+    }
 };
 
 
@@ -44,23 +37,13 @@ class InomialClient {
     // constructor; this can allow the caller to fine-tune socket/TLS parameters as needed.
     // See <https://github.com/theturtle32/WebSocket-Node/blob/master/docs/WebSocketClient.md#client-config-options>
     // for more details on what properties this object can accept.
-    //
-    // logLevel (if specified) should be one of the following constants:
-    //   LogLevel.NONE          No logging at all.
-    //   LogLevel.ERRORS        Only print errors (e.g. connection dropouts).
-    //   LogLevel.INFO          Also print informational messages (connection establishment).
-    //   LogLevel.FINE          Also print wire-level logging of GraphQL requests/responses.
-    // Default logging level is INFO if logLevel is null or omitted, but can be overridden with INOMIAL_LOG_LEVEL
-    // environment variable.
-    constructor(hostname, stage, origin, apikey, websocketClientConfig, logLevel)
+    constructor(hostname, stage, origin, apikey, websocketClientConfig)
     {
         if (!hostname && !("INOMIAL_HOSTNAME" in process.env))
           throw new Error("No hostname given (INOMIAL_HOSTNAME is unset)");
-        if (!stage && !("INOMIAL_STAGE" in process.env))
-          throw new Error("No stage given (INOMIAL_STAGE is unset)");
 
         hostname = hostname || process.env.INOMIAL_HOSTNAME;
-        stage = stage || process.env.INOMIAL_STAGE;
+        stage = stage || process.env.INOMIAL_STAGE || "live";
         apikey = apikey || process.env.INOMIAL_APIKEY;
 
         this.clientConfig = websocketClientConfig;
@@ -93,47 +76,13 @@ class InomialClient {
         this.subscriptionUuidCache = {};
 
         this.reconnectPolicy = false;
-
-        if (logLevel != null)
-        {
-          this.logLevel = logLevel
-        }
-        else if ("INOMIAL_LOG_LEVEL" in process.env)
-        {
-          switch (process.env.INOMIAL_LOG_LEVEL.toUpperCase())
-          {
-            case "NONE":
-              this.logLevel = NONE;
-              break;
-            case "ERRORS":
-              this.logLevel = ERRORS;
-              break;
-            case "INFO":
-              this.logLevel = INFO;
-              break;
-            case "FINE":
-              this.logLevel = FINE;
-              break;
-            default:
-              this.logLevel = INFO;
-          }
-        }
-        else
-        {
-          this.logLevel = INFO;
-        }
-    }
-
-    setLogLevel(logLevel) {
-      this.logLevel = logLevel;
     }
 
 //
 // Connect to the WebSocket server. 
 //
     connect() {
-        if (this.logLevel >= INFO)
-          console.info("[InomialClient] Attempting to connect to " + this.url);
+        console.log("Attempting to connect to " + this.url);
 
         let headers;
 
@@ -153,8 +102,7 @@ class InomialClient {
 // connection will now be executed.
 //
     onConnect(connection) {
-        if (this.logLevel >= INFO)
-          console.info("[InomialClient] Connection started to " + this.url);
+        console.log("Connection started to " + this.url);
 
         this.connection = connection;
         connection.on('message', this.onMessage.bind(this));
@@ -172,11 +120,8 @@ class InomialClient {
     }
 
     onConnectError(e) {
-        if (this.logLevel >= ERRORS)
-        {
-          console.error("[InomialClient] Unable to connect: " + e);
-          console.error("  Retrying in 10 seconds");
-        }
+        console.log("Unable to connect: " + e);
+        console.log("  Retrying in 10 seconds");
         setTimeout(this.connect.bind(this), 10000);
     }
 
@@ -188,9 +133,6 @@ class InomialClient {
      * query is queued until the connection becomes available.
      */
     async query(queryString, variables, operationName) {
-        if (queryString == null)
-          throw new Error("queryString must not be null");
-
         // The query we're going to send to the server.
         let query = {
             query: queryString,
@@ -260,78 +202,6 @@ class InomialClient {
         this.sendRequest(request);
     }
 
-    logWireRequest(graphqlRequest) {
-      if (this.logLevel < FINE)
-        return;
-
-      // Indent for readability
-      console.group("[InomialClient] GraphQL request " + graphqlRequest.extensions.requestId + " sent:");
-
-      if (graphqlRequest.operationName && /^[_A-Za-z]\w*$/.test(graphqlRequest.operationName))
-      {
-        // If operation name was given and is well-formed, we'll try a quick-and-dirty regex search to locate the
-        // query/mutation/subscription by that name in the query document and print it out as an excerpt (since the
-        // entire query document could be very large and may flood the logs if printed in quick succession).
-        let regExp = new RegExp("^(?:query|mutation|subscription)\\s+" + graphqlRequest.operationName
-          + "\\s*[({].*?^\\}", "ms");
-        let result = regExp.exec(graphqlRequest.query);
-        if (result != null)
-        {
-          console.group("query (excerpt):");
-          console.log(result[0]);
-          console.groupEnd();
-        }
-        else if (graphqlRequest.query.length >= 500)
-        {
-          // If we can't locate the operation but the query document is still large, then we'll just print the first
-          // bit of it & hope it's distinct enough to jolt the developer's memory.
-          console.log("query: " + JSON.stringify(graphqlRequest.query.slice(0, 72) + "…"));
-        }
-        else
-        {
-          // Short-enough query document - print the whole lot.
-          console.group("query:");
-          console.log(graphqlRequest.query);
-          console.groupEnd();
-        }
-      }
-      else
-      {
-        // Always print ad-hoc single operation queries in their entirety.
-        console.group("query:");
-        console.log(graphqlRequest.query);
-        console.groupEnd();
-      }
-
-      if (graphqlRequest.operationName)
-        console.log("operationName: " + graphqlRequest.operationName);
-
-      if (graphqlRequest.variables)
-      {
-        console.group("variables:");
-        // Will colour-code JSON pretty-print if stdout is a TTY in node.js.
-        console.dir(graphqlRequest.variables, { depth: null });
-        console.groupEnd();
-      }
-
-      console.groupEnd();
-    }
-
-    logWireResponse(graphqlResponse) {
-      if (this.logLevel < FINE)
-        return;
-
-      // Indent for readability
-      if ("extensions" in graphqlResponse && "requestId" in graphqlResponse.extensions)
-        console.group("[InomialClient] GraphQL response for request "
-            + graphqlResponse.extensions.requestId + " received:");
-      else
-        console.group("[InomialClient] GraphQL response received:");
-      // Will colour-code JSON pretty-print if stdout is a TTY in node.js.
-      console.dir(graphqlResponse, { depth: null });
-      console.groupEnd();
-    }
-
     /**
      * Send a request. The promise has already been set up, but we only assign a request ID
      * when we actually send the request, in case we want to re-transmit it later with a different
@@ -344,18 +214,15 @@ class InomialClient {
         let query = request.query;
         query.extensions = {requestId: requestId};
         this.connection.sendUTF(JSON.stringify(query));
-        this.logWireRequest(query);
     }
 
     onMessage(message) {
         if (message.type !== 'utf8') {
-            if (this.logLevel >= ERRORS)
-              console.error("[InomialClient] Recieved unexpected response type: " + message.type);
+            console.log("Recieved unexpected response type: " + message.type);
             return;
         }
 
         let response = JSON.parse(message.utf8Data);
-        this.logWireResponse(response);
         let requestId = response.extensions != null ? response.extensions.requestId : null;
 
         let request = this.responseQueue[requestId];
@@ -365,11 +232,8 @@ class InomialClient {
             if (!request.isSubscription)
               delete this.responseQueue[requestId];
             request.resolve(response);
-        } else {
-            if (this.logLevel >= ERRORS)
-              console.error("[InomialClient] Received response to unknown request " + requestId
-                + ", response=" + JSON.stringify(response));
-        }
+        } else
+            console.log("Received response to unknown request " + requestId + ", response=" + JSON.stringify(response));
     }
 
     /**
@@ -377,19 +241,16 @@ class InomialClient {
      */
     doReconnect() {
         if (!this.reconnectPolicy) {
-            if (this.logLevel >= INFO)
-              console.info("[InomialClient] Auto-reconnection disabled");
+            console.log("Auto-reconnection disabled");
             return;
         }
 
-        if (this.logLevel >= INFO)
-          console.info("[InomialClient] Attempting to reconnect");
+        console.log("Attempting to reconnect");
 
         this.connection = null;
         for (let requestId in this.responseQueue) {
             if (this.responseQueue.hasOwnProperty(requestId)) {
-                if (this.logLevel >= INFO)
-                  console.info("Re-queueing request " + requestId);
+                console.log("Re-queueing request " + requestId);
                 const request = this.responseQueue[requestId];
                 this.requestQueue.push(request)
             }
@@ -400,14 +261,12 @@ class InomialClient {
     }
 
     onError(error) {
-        if (this.logLevel >= ERRORS)
-          console.error("[InomialClient] onError, error=" + error);
+        console.log("onError, error=" + error);
         this.doReconnect();
     }
 
     onClose(reason) {
-        if (this.logLevel >= INFO)
-          console.info("[InomialClient] onClose, reason=" + reason);
+        console.log("onClose, reason=" + reason);
         this.doReconnect();
     }
 
