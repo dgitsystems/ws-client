@@ -7,11 +7,20 @@
 // subscriptions.
 //
 
+let websocketClientConfig = null;
+
 module.exports = {
-    connect: function(hostname, stage, origin, apikey, websocketClientConfig) {
-        const client = new InomialClient(hostname, stage, origin, apikey, websocketClientConfig);
+    connect: function(hostname, stage, origin, apikey) {
+        const client = new InomialClient(hostname, stage, origin, apikey);
         client.connect();
         return client;
+    },
+    // websocketClientConfig is an optional JS object passed-on verbatim to the WebSocketClient
+    // constructor; this can allow the caller to fine-tune socket/TLS parameters as needed.
+    // See <https://github.com/theturtle32/WebSocket-Node/blob/master/docs/WebSocketClient.md#client-config-options>
+    // for more details on what properties this object can accept.
+    setWebsocketClientConfig: function(_websocketClientConfig) {
+      websocketClientConfig = _websocketClientConfig;
     }
 };
 
@@ -33,11 +42,7 @@ class InomialClient {
     // Origin is nullable is the WSS Origin header; should be null for web clients, or
     // you can set it to let the server know what your application name is.
     //
-    // websocketClientConfig is an optional JS object passed-on verbatim to the WebSocketClient
-    // constructor; this can allow the caller to fine-tune socket/TLS parameters as needed.
-    // See <https://github.com/theturtle32/WebSocket-Node/blob/master/docs/WebSocketClient.md#client-config-options>
-    // for more details on what properties this object can accept.
-    constructor(hostname, stage, origin, apikey, websocketClientConfig)
+    constructor(hostname, stage, origin, apikey)
     {
         if (!hostname && !("INOMIAL_HOSTNAME" in process.env))
           throw new Error("No hostname given (INOMIAL_HOSTNAME is unset)");
