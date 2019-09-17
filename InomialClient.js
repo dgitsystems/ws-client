@@ -7,11 +7,20 @@
 // subscriptions.
 //
 
+let websocketClientConfig = null;
+
 module.exports = {
     connect: function(hostname, stage, origin, apikey) {
         const client = new InomialClient(hostname, stage, origin, apikey);
         client.connect();
         return client;
+    },
+    // websocketClientConfig is an optional JS object passed-on verbatim to the WebSocketClient
+    // constructor; this can allow the caller to fine-tune socket/TLS parameters as needed.
+    // See <https://github.com/theturtle32/WebSocket-Node/blob/master/docs/WebSocketClient.md#client-config-options>
+    // for more details on what properties this object can accept.
+    setWebsocketClientConfig: function(_websocketClientConfig) {
+      websocketClientConfig = _websocketClientConfig;
     }
 };
 
@@ -33,13 +42,17 @@ class InomialClient {
     // Origin is nullable is the WSS Origin header; should be null for web clients, or
     // you can set it to let the server know what your application name is.
     //
-    //
     constructor(hostname, stage, origin, apikey)
     {
+        if (!hostname && !("INOMIAL_HOSTNAME" in process.env))
+          throw new Error("No hostname given (INOMIAL_HOSTNAME is unset)");
+
         hostname = hostname || process.env.INOMIAL_HOSTNAME;
-        stage = stage || process.env.INOMIAL_STAGE;
+        stage = stage || process.env.INOMIAL_STAGE || "live";
         apikey = apikey || process.env.INOMIAL_APIKEY;
-        
+
+        this.clientConfig = websocketClientConfig;
+
         // If the connection is down, queries are added to this queue.
         // When the connection comes back up, the queries are executed.
         this.requestQueue = [];
@@ -81,7 +94,7 @@ class InomialClient {
         if (this.apikey != null)
             headers = {"Authorization": "BASIC " + this.apikey};
 
-        this.client = new WebSocketClient();
+        this.client = new WebSocketClient(this.clientConfig);
 
         this.client.on('connect', this.onConnect.bind(this));
         this.client.on('connectFailed', this.onConnectError.bind(this));

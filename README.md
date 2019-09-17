@@ -48,6 +48,17 @@ This means you can set up your shell/docker environment and then connect using
 
     const client = InomialClient.connect();
 
+## Specifying custom socket/TLS options
+
+If you need to fine-tune socket or TLS options before you connect to the GraphQL server, then you can call the
+`InomialClient.setWebsocketClientConfig()` static method prior to invoking `InomialClient.connect()` above.
+
+    InomialClient.InomialClient.setWebsocketClientConfig(websocketClientConfig);
+
+The `websocketClientConfig` argument should be an object that is passed-on verbatim to the underlying websocket library;
+details on which properties are supported can be found
+[here](https://github.com/theturtle32/WebSocket-Node/blob/master/docs/WebSocketClient.md#client-config-options).
+
 ## Subscribing to events
 
 Subscribe to events using the `client.subscribe` call. This executes the given
