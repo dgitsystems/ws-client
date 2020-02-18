@@ -36,7 +36,7 @@ async function subscribe()
   // Subscribe to some events.
   // client.subscribe("subscription { AccountEvents { offset accountUuid account { AccountDisposition { name } } } }", null, receivedEvent);
   client.subscribe("subscription { DispositionEvents { offset accountUuid account { AccountDisposition { name } } } }", null, receivedEvent);
-  client.subscribe("subscription { TransactionEvents { offset accountUuid } }", null, receivedEvent);
+  client.subscribe("subscription { TransactionEvents { offset txUuid } }", null, receivedEvent);
 
   // Subscribe to an event with a known offset, and store the offset after receiving the event.
   // This is the reliable message delivery pattern for Inomial clients.
